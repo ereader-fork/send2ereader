@@ -1,0 +1,54 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main # Adjust to the branch you want to trigger the workflow
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Log in to GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.TOKEN }}
+
+      # Set up Docker Buildx (for multi-architecture support)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Cache Docker layers to speed up builds
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+
+      # Build and push the Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:cache
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:cache
+          cache-to: type=inline
+
+      # Verify the image was uploaded (optional)
+      - name: Verify uploaded image
+        run: |
+          echo "Docker image uploaded to ghcr.io/${{ github.repository }}:latest"
